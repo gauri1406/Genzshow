@@ -1,74 +1,116 @@
 import axios from "axios";
+
 import Movie from "../models/Movie.js";
 import Show from "../models/Show.js";
+
 import { inngest } from "../inngest/index.js";
 
-// API to get now playing movies from TMDB
+
+// ============================================================
+// GET NOW PLAYING MOVIES FROM TMDB
+// ============================================================
+
 export const getNowPlayingMovies = async (req, res) => {
     try {
-        const { data } = await axios.get(
+        const response = await axios.get(
             "https://api.themoviedb.org/3/movie/now_playing",
             {
                 headers: {
                     Authorization:
-                        `Bearer ${process.env.TMDB_API_KEY}`
-                }
+                        `Bearer ${process.env.TMDB_API_KEY}`,
+                },
+                params: {
+                    language: "en-US",
+                    page: 1,
+                    region: "IN",
+                },
             }
         );
 
-        const movies = data.results;
+        const movies =
+            response.data?.results || [];
 
-        res.json({
+        return res.json({
             success: true,
-            movies
+            movies,
         });
 
     } catch (error) {
         console.error(
-            "NOW PLAYING ERROR:",
-            error.response?.data || error.message
+            "NOW PLAYING MOVIES ERROR:",
+            error.response?.data ||
+            error.message
         );
 
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message:
                 error.response?.data?.status_message ||
-                error.message
+                error.message ||
+                "Failed to fetch now playing movies.",
         });
     }
 };
 
 
-// API to add a new show
+// ============================================================
+// ADD A NEW SHOW
+// ============================================================
+
 export const addShow = async (req, res) => {
     try {
-
         const {
             movieId,
+            theatreId,
             showsInput,
-            showPrice
+            showPrice,
         } = req.body;
 
-        // Validate movie
+
+        // ====================================================
+        // VALIDATE MOVIE
+        // ====================================================
+
         if (!movieId) {
             return res.status(400).json({
                 success: false,
-                message: "Movie is required"
+                message: "Movie is required.",
             });
         }
 
-        // Validate shows
+
+        // ====================================================
+        // VALIDATE THEATRE
+        // ====================================================
+
+        if (!theatreId) {
+            return res.status(400).json({
+                success: false,
+                message: "Theatre is required.",
+            });
+        }
+
+
+        // ====================================================
+        // VALIDATE SHOW INPUT
+        // ====================================================
+
         if (
             !Array.isArray(showsInput) ||
             showsInput.length === 0
         ) {
             return res.status(400).json({
                 success: false,
-                message: "Show date and time are required"
+                message:
+                    "Show date and time are required.",
             });
         }
 
-        // Validate price
+
+        // ====================================================
+        // VALIDATE PRICE
+        // ====================================================
+
         if (
             showPrice === undefined ||
             showPrice === null ||
@@ -76,21 +118,30 @@ export const addShow = async (req, res) => {
         ) {
             return res.status(400).json({
                 success: false,
-                message: "Valid show price is required"
+                message:
+                    "Valid show price is required.",
             });
         }
 
 
-        // Find movie in database
-        let movie = await Movie.findById(movieId);
+        // ====================================================
+        // FIND MOVIE
+        // ====================================================
+
+        let movie =
+            await Movie.findById(movieId);
 
 
-        // If movie doesn't exist, get it from TMDB
+        // ====================================================
+        // IF MOVIE DOES NOT EXIST
+        // FETCH FROM TMDB
+        // ====================================================
+
         if (!movie) {
 
             const [
                 movieDetailsResponse,
-                movieCreditsResponse
+                movieCreditsResponse,
             ] = await Promise.all([
 
                 axios.get(
@@ -98,8 +149,8 @@ export const addShow = async (req, res) => {
                     {
                         headers: {
                             Authorization:
-                                `Bearer ${process.env.TMDB_API_KEY}`
-                        }
+                                `Bearer ${process.env.TMDB_API_KEY}`,
+                        },
                     }
                 ),
 
@@ -108,10 +159,10 @@ export const addShow = async (req, res) => {
                     {
                         headers: {
                             Authorization:
-                                `Bearer ${process.env.TMDB_API_KEY}`
-                        }
+                                `Bearer ${process.env.TMDB_API_KEY}`,
+                        },
                     }
-                )
+                ),
 
             ]);
 
@@ -125,43 +176,69 @@ export const addShow = async (req, res) => {
 
             const movieDetails = {
                 _id: movieId,
-                title: movieApiData.title,
-                overview: movieApiData.overview,
-                poster_path: movieApiData.poster_path,
-                backdrop_path: movieApiData.backdrop_path,
-                genres: movieApiData.genres,
-                casts: movieCreditsData.cast,
-                release_date: movieApiData.release_date,
+
+                title:
+                    movieApiData.title,
+
+                overview:
+                    movieApiData.overview,
+
+                poster_path:
+                    movieApiData.poster_path,
+
+                backdrop_path:
+                    movieApiData.backdrop_path,
+
+                genres:
+                    movieApiData.genres,
+
+                casts:
+                    movieCreditsData.cast,
+
+                release_date:
+                    movieApiData.release_date,
+
                 original_language:
                     movieApiData.original_language,
+
                 tagline:
                     movieApiData.tagline || "",
+
                 vote_average:
                     movieApiData.vote_average,
+
                 runtime:
-                    movieApiData.runtime
+                    movieApiData.runtime,
             };
 
 
-            movie = await Movie.create(
-                movieDetails
-            );
+            movie =
+                await Movie.create(
+                    movieDetails
+                );
         }
 
 
-        // Create shows
+        // ====================================================
+        // PREPARE SHOWS
+        // ====================================================
+
         const showsToCreate = [];
 
 
         showsInput.forEach((show) => {
 
-            const showDate = show.date;
+            const showDate =
+                show.date;
+
 
             if (
-                !Array.isArray(show.time)
+                !Array.isArray(
+                    show.time
+                )
             ) {
                 throw new Error(
-                    "Invalid show time format"
+                    "Invalid show time format."
                 );
             }
 
@@ -171,8 +248,11 @@ export const addShow = async (req, res) => {
                 const dateTimeString =
                     `${showDate}T${time}`;
 
+
                 const showDateTime =
-                    new Date(dateTimeString);
+                    new Date(
+                        dateTimeString
+                    );
 
 
                 if (
@@ -187,10 +267,18 @@ export const addShow = async (req, res) => {
 
 
                 showsToCreate.push({
-                    movie: movieId,
+                    movie:
+                        movie._id,
+
+                    theatre:
+                        theatreId,
+
                     showDateTime,
-                    showPrice: Number(showPrice),
-                    occupiedSeats: {}
+
+                    showPrice:
+                        Number(showPrice),
+
+                    occupiedSeats: {},
                 });
 
             });
@@ -198,30 +286,44 @@ export const addShow = async (req, res) => {
         });
 
 
-        // Save shows
-        if (showsToCreate.length > 0) {
+        // ====================================================
+        // INSERT SHOWS
+        // ====================================================
 
+        if (
+            showsToCreate.length > 0
+        ) {
             await Show.insertMany(
                 showsToCreate
             );
-
         }
 
 
-        // Trigger Inngest event
+        // ====================================================
+        // INNGEST EVENT
+        // ====================================================
+
         await inngest.send({
-            name: "app/show.added",
+            name:
+                "app/show.added",
+
             data: {
-                movieTitle: movie.title
-            }
+                movieTitle:
+                    movie.title,
+            },
         });
 
 
-        res.json({
+        // ====================================================
+        // RESPONSE
+        // ====================================================
+
+        return res.json({
             success: true,
-            message: "Show Added successfully."
-        });
 
+            message:
+                "Show Added successfully.",
+        });
 
     } catch (error) {
 
@@ -230,44 +332,61 @@ export const addShow = async (req, res) => {
             error
         );
 
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
-            message: error.message
-        });
 
+            message:
+                error.message ||
+                "Failed to add show.",
+        });
     }
 };
 
 
-// API to get all shows
+// ============================================================
+// GET ALL SHOWS
+// ============================================================
+
 export const getShows = async (req, res) => {
     try {
 
-        const shows = await Show.find({
-            showDateTime: {
-                $gte: new Date()
-            }
-        })
-            .populate("movie")
-            .sort({
-                showDateTime: 1
-            });
+        const shows =
+            await Show.find({
+                showDateTime: {
+                    $gte: new Date(),
+                },
+            })
+                .populate("movie")
+                .populate("theatre")
+                .sort({
+                    showDateTime: 1,
+                });
 
 
-        // Get unique movies
+        // ====================================================
+        // UNIQUE MOVIES
+        // ====================================================
+
         const uniqueMovies = [
             ...new Map(
-                shows.map((show) => [
-                    show.movie._id.toString(),
-                    show.movie
-                ])
-            ).values()
+                shows
+                    .filter(
+                        (show) =>
+                            show.movie
+                    )
+                    .map(
+                        (show) => [
+                            show.movie._id.toString(),
+                            show.movie,
+                        ]
+                    )
+            ).values(),
         ];
 
 
-        res.json({
+        return res.json({
             success: true,
-            shows: uniqueMovies
+            shows: uniqueMovies,
         });
 
     } catch (error) {
@@ -277,32 +396,80 @@ export const getShows = async (req, res) => {
             error
         );
 
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
-            message: error.message
+
+            message:
+                error.message ||
+                "Failed to fetch shows.",
         });
     }
 };
 
 
-// API to get a single movie's shows
+// ============================================================
+// GET MOVIE SHOWS
+// ============================================================
+
 export const getShow = async (req, res) => {
     try {
 
-        const { movieId } = req.params;
+        const {
+            movieId,
+        } = req.params;
 
 
-        const shows = await Show.find({
+        const {
+            theatreId,
+        } = req.query;
+
+
+        // ====================================================
+        // BUILD FILTER
+        // ====================================================
+
+        const filter = {
             movie: movieId,
-            showDateTime: {
-                $gte: new Date()
-            }
-        });
 
+            showDateTime: {
+                $gte: new Date(),
+            },
+        };
+
+
+        if (theatreId) {
+            filter.theatre =
+                theatreId;
+        }
+
+
+        // ====================================================
+        // FIND SHOWS
+        // ====================================================
+
+        const shows =
+            await Show.find(
+                filter
+            )
+                .populate("theatre")
+                .sort({
+                    showDateTime: 1,
+                });
+
+
+        // ====================================================
+        // MOVIE
+        // ====================================================
 
         const movie =
-            await Movie.findById(movieId);
+            await Movie.findById(
+                movieId
+            );
 
+
+        // ====================================================
+        // GROUP BY DATE
+        // ====================================================
 
         const dateTime = {};
 
@@ -315,25 +482,41 @@ export const getShow = async (req, res) => {
                     .split("T")[0];
 
 
-            if (!dateTime[date]) {
+            if (
+                !dateTime[date]
+            ) {
                 dateTime[date] = [];
             }
 
 
             dateTime[date].push({
-                time: show.showDateTime,
-                showId: show._id
+                time:
+                    show.showDateTime,
+
+                showId:
+                    show._id,
+
+                theatre:
+                    show.theatre,
+
+                showPrice:
+                    show.showPrice,
             });
 
         });
 
 
-        res.json({
-            success: true,
-            movie,
-            dateTime
-        });
+        // ====================================================
+        // RESPONSE
+        // ====================================================
 
+        return res.json({
+            success: true,
+
+            movie,
+
+            dateTime,
+        });
 
     } catch (error) {
 
@@ -342,9 +525,177 @@ export const getShow = async (req, res) => {
             error
         );
 
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
-            message: error.message
+
+            message:
+                error.message ||
+                "Failed to fetch movie shows.",
         });
     }
+};
+
+
+// ============================================================
+// GET SHOWS BY TMDB MOVIE ID
+// ============================================================
+//
+// IMPORTANT:
+//
+// In your database the TMDB movie ID is stored as Movie._id.
+// Therefore we directly query:
+//
+// Show.movie === TMDB movie ID
+//
+// We do NOT need movie.tmdbId.
+//
+// ============================================================
+
+export const getShowsByTmdbMovieId = async (
+    req,
+    res
+) => {
+
+    try {
+
+        const {
+            movieId,
+        } = req.params;
+
+
+        if (!movieId) {
+
+            return res.status(400).json({
+                success: false,
+                message:
+                    "Movie ID is required.",
+            });
+
+        }
+
+
+        // ====================================================
+        // FIND SHOWS
+        // ====================================================
+
+        const shows =
+            await Show.find({
+                movie: movieId,
+
+                showDateTime: {
+                    $gte: new Date(),
+                },
+
+            })
+                .populate("movie")
+                .populate("theatre")
+                .sort({
+                    showDateTime: 1,
+                })
+                .lean();
+
+
+        // ====================================================
+        // GROUP SHOWS BY THEATRE
+        // ====================================================
+
+        const theatreMap =
+            new Map();
+
+
+        shows.forEach((show) => {
+
+            if (!show.theatre) {
+                return;
+            }
+
+
+            const theatreId =
+                String(
+                    show.theatre._id
+                );
+
+
+            if (
+                !theatreMap.has(
+                    theatreId
+                )
+            ) {
+
+                theatreMap.set(
+                    theatreId,
+                    {
+                        theatre:
+                            show.theatre,
+
+                        shows: [],
+                    }
+                );
+
+            }
+
+
+            theatreMap
+                .get(theatreId)
+                .shows
+                .push({
+                    _id:
+                        show._id,
+
+                    showDateTime:
+                        show.showDateTime,
+
+                    showPrice:
+                        show.showPrice,
+
+                    occupiedSeats:
+                        show.occupiedSeats ||
+                        {},
+                });
+
+        });
+
+
+        const theatreShows =
+            Array.from(
+                theatreMap.values()
+            );
+
+
+        // ====================================================
+        // RESPONSE
+        // ====================================================
+
+        return res.json({
+
+            success: true,
+
+            movieId,
+
+            shows,
+
+            theatreShows,
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "GET SHOWS BY TMDB MOVIE ID ERROR:",
+            error
+        );
+
+
+        return res.status(500).json({
+
+            success: false,
+
+            message:
+                error.message ||
+                "Unable to fetch movie shows.",
+
+        });
+
+    }
+
 };

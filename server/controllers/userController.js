@@ -1,62 +1,232 @@
 import { clerkClient } from "@clerk/express";
+
 import Booking from "../models/Booking.js";
 import Movie from "../models/Movie.js";
 
+// ============================================================
+// GET USER BOOKINGS
+// ============================================================
 
-// API Controller Function to Get User Bookings
-export const getUserBookings = async (req, res)=>{
+export const getUserBookings = async (
+    req,
+    res
+) => {
     try {
-        const user = req.auth().userId;
+        const { userId } =
+            req.auth();
 
-        const bookings = await Booking.find({user}).populate({
-            path: "show",
-            populate: {path: "movie"}
-        }).sort({createdAt: -1 })
-        res.json({success: true, bookings})
-    } catch (error) {
-        console.error(error.message);
-        res.json({ success: false, message: error.message });
-    }
-}
-
-// API Controller Function to update Favorite Movie in Clerk User Metadata
-export const updateFavorite = async (req, res)=>{
-    try {
-        const { movieId } = req.body;
-        const userId = req.auth().userId;
-
-        const user = await clerkClient.users.getUser(userId)
-
-        if(!user.privateMetadata.favorites){
-            user.privateMetadata.favorites = []
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message:
+                    "Please login to continue.",
+            });
         }
 
-        if(!user.privateMetadata.favorites.includes(movieId)){
-            user.privateMetadata.favorites.push(movieId)
-        }else{
-            user.privateMetadata.favorites = user.privateMetadata.favorites.filter(item => item !== movieId)
+        const bookings =
+            await Booking.find({
+                user: userId,
+            })
+                .populate({
+                    path: "show",
+                    populate: [
+                        {
+                            path: "movie",
+                            model: "Movie",
+                        },
+                        {
+                            path: "theatre",
+                            model: "Theatre",
+                        },
+                    ],
+                })
+                .sort({
+                    createdAt: -1,
+                });
+
+        return res.json({
+            success: true,
+            bookings,
+        });
+    } catch (error) {
+        console.error(
+            "GET USER BOOKINGS ERROR:",
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message:
+                error.message ||
+                "Failed to get bookings.",
+        });
+    }
+};
+
+// ============================================================
+// UPDATE FAVORITE MOVIE
+// ============================================================
+
+export const updateFavorite = async (
+    req,
+    res
+) => {
+    try {
+        const {
+            movieId,
+        } = req.body;
+
+        const { userId } =
+            req.auth();
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message:
+                    "Please login to continue.",
+            });
         }
 
-        await clerkClient.users.updateUserMetadata(userId, {privateMetadata: user.privateMetadata})
+        if (!movieId) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    "Movie ID is required.",
+            });
+        }
 
-        res.json({success: true, message: "Favorite movies updated" })
+        const user =
+            await clerkClient.users.getUser(
+                userId
+            );
+
+        const currentFavorites =
+            Array.isArray(
+                user.privateMetadata
+                    ?.favorites
+            )
+                ? user.privateMetadata
+                    .favorites
+                : [];
+
+        let favorites;
+
+        if (
+            currentFavorites.includes(
+                movieId
+            )
+        ) {
+            // Remove movie
+            favorites =
+                currentFavorites.filter(
+                    (item) =>
+                        item !== movieId
+                );
+        } else {
+            // Add movie
+            favorites = [
+                ...currentFavorites,
+                movieId,
+            ];
+        }
+
+        await clerkClient.users.updateUserMetadata(
+            userId,
+            {
+                privateMetadata: {
+                    ...user.privateMetadata,
+
+                    favorites,
+                },
+            }
+        );
+
+        return res.json({
+            success: true,
+            message:
+                "Favorite movies updated.",
+            favorites,
+        });
     } catch (error) {
-        console.error(error.message);
-        res.json({ success: false, message: error.message });
-    }
-}
+        console.error(
+            "UPDATE FAVORITE ERROR:",
+            error
+        );
 
-export const getFavorites = async (req, res) =>{
+        return res.status(500).json({
+            success: false,
+            message:
+                error.message ||
+                "Failed to update favorites.",
+        });
+    }
+};
+
+// ============================================================
+// GET FAVORITE MOVIES
+// ============================================================
+
+export const getFavorites = async (
+    req,
+    res
+) => {
     try {
-        const user = await clerkClient.users.getUser(req.auth().userId)
-        const favorites = user.privateMetadata.favorites;
+        const { userId } =
+            req.auth();
 
-        // Getting movies from database
-        const movies = await Movie.find({_id: {$in: favorites}})
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message:
+                    "Please login to continue.",
+            });
+        }
 
-        res.json({success: true, movies})
+        const user =
+            await clerkClient.users.getUser(
+                userId
+            );
+
+        const favorites =
+            Array.isArray(
+                user.privateMetadata
+                    ?.favorites
+            )
+                ? user.privateMetadata
+                    .favorites
+                : [];
+
+        if (
+            favorites.length === 0
+        ) {
+            return res.json({
+                success: true,
+                movies: [],
+            });
+        }
+
+        const movies =
+            await Movie.find({
+                _id: {
+                    $in: favorites,
+                },
+            });
+
+        return res.json({
+            success: true,
+            movies,
+        });
     } catch (error) {
-        console.error(error.message);
-        res.json({ success: false, message: error.message });
+        console.error(
+            "GET FAVORITES ERROR:",
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message:
+                error.message ||
+                "Failed to get favorite movies.",
+        });
     }
-}
+};

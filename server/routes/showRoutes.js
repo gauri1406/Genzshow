@@ -1,36 +1,56 @@
 import express from "express";
 
 import {
-    addShow,
     getNowPlayingMovies,
+    addShow,
+    getShows,
     getShow,
-    getShows
 } from "../controllers/showController.js";
 
-import { protectAdmin } from "../middleware/auth.js";
+const showRouter =
+    express.Router();
 
-const showRouter = express.Router();
+
+// ============================================================
+// TMDB NOW PLAYING
+// IMPORTANT:
+// Keep this BEFORE /:movieId
+// ============================================================
 
 showRouter.get(
     "/now-playing",
-    protectAdmin,
     getNowPlayingMovies
 );
 
-showRouter.post(
-    "/add",
-    protectAdmin,
-    addShow
-);
+
+// ============================================================
+// GET ALL SHOWS
+// ============================================================
 
 showRouter.get(
-    "/all",
+    "/",
     getShows
 );
+
+
+// ============================================================
+// GET MOVIE SHOWS
+// ============================================================
 
 showRouter.get(
     "/:movieId",
     getShow
 );
+
+
+// ============================================================
+// ADD SHOW
+// ============================================================
+
+showRouter.post(
+    "/add",
+    addShow
+);
+
 
 export default showRouter;

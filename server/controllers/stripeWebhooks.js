@@ -1,50 +1,284 @@
-import stripe from "stripe";
-import Booking from '../models/Booking.js'
+import Stripe from "stripe";
+
+import Booking from "../models/Booking.js";
+
 import { inngest } from "../inngest/index.js";
 
-export const stripeWebhooks = async (request, response)=>{
-    const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
-    const sig = request.headers["stripe-signature"];
+const stripe = new Stripe(
+    process.env.STRIPE_SECRET_KEY
+);
+
+// ============================================================
+// STRIPE WEBHOOK
+// ============================================================
+
+export const stripeWebhooks = async (
+    request,
+    response
+) => {
+    const signature =
+        request.headers[
+            "stripe-signature"
+        ];
+
+    if (!signature) {
+        return response.status(400).send(
+            "Stripe signature missing."
+        );
+    }
+
+    if (
+        !process.env
+            .STRIPE_WEBHOOK_SECRET
+    ) {
+        console.error(
+            "STRIPE_WEBHOOK_SECRET is missing."
+        );
+
+        return response.status(500).send(
+            "Stripe webhook is not configured."
+        );
+    }
 
     let event;
 
+    // ========================================================
+    // VERIFY STRIPE EVENT
+    // ========================================================
+
     try {
-        event = stripeInstance.webhooks.constructEvent(request.body, sig, process.env.STRIPE_WEBHOOK_SECRET)
+        event =
+            stripe.webhooks.constructEvent(
+                request.body,
+                signature,
+                process.env
+                    .STRIPE_WEBHOOK_SECRET
+            );
     } catch (error) {
-        return response.status(400).send(`Webhook Error: ${error.message}`);
+        console.error(
+            "STRIPE SIGNATURE ERROR:",
+            error.message
+        );
+
+        return response.status(400).send(
+            `Webhook Error: ${error.message}`
+        );
     }
+
+    // ========================================================
+    // PROCESS EVENT
+    // ========================================================
 
     try {
         switch (event.type) {
-            case "payment_intent.succeeded": {
-                const paymentIntent = event.data.object;
-                const sessionList = await stripeInstance.checkout.sessions.list({
-                    payment_intent: paymentIntent.id
-                })
 
-                const session = sessionList.data[0];
-                const { bookingId } = session.metadata;
+            // ------------------------------------------------
+            // CHECKOUT COMPLETED
+            // ------------------------------------------------
 
-                await Booking.findByIdAndUpdate(bookingId, {
-                    isPaid: true,
-                    paymentLink: ""
-                })
+            case "checkout.session.completed": {
+                const session =
+                    event.data.object;
 
-                 // Send Confirmation Email
-                 await inngest.send({
-                    name: "app/show.booked",
-                    data: {bookingId}
-                 })
-                
+                const bookingId =
+                    session.metadata
+                        ?.bookingId;
+
+                if (!bookingId) {
+                    console.error(
+                        "No bookingId found in Stripe session."
+                    );
+
+                    break;
+                }
+
+                const booking =
+                    await Booking.findById(
+                        bookingId
+                    );
+
+                if (!booking) {
+                    console.error(
+                        "Booking not found:",
+                        bookingId
+                    );
+
+                    break;
+                }
+
+                // Save Stripe session
+                booking.stripeSessionId =
+                    session.id;
+
+                await booking.save();
+
+                // ------------------------------------------------
+                // Stripe confirms payment
+                // ------------------------------------------------
+
+                if (
+                    session.payment_status ===
+                    "paid"
+                ) {
+                    await inngest.send({
+                        name:
+                            "app/payment.success",
+
+                        data: {
+                            bookingId:
+                                booking._id.toString(),
+
+                            stripeSessionId:
+                                session.id,
+                        },
+                    });
+                }
+
                 break;
             }
-        
+
+            // ------------------------------------------------
+            // ASYNC PAYMENT SUCCESS
+            // ------------------------------------------------
+
+            case "checkout.session.async_payment_succeeded": {
+                const session =
+                    event.data.object;
+
+                const bookingId =
+                    session.metadata
+                        ?.bookingId;
+
+                if (!bookingId) {
+                    break;
+                }
+
+                await inngest.send({
+                    name:
+                        "app/payment.success",
+
+                    data: {
+                        bookingId,
+
+                        stripeSessionId:
+                            session.id,
+                    },
+                });
+
+                break;
+            }
+
+            // ------------------------------------------------
+            // ASYNC PAYMENT FAILED
+            // ------------------------------------------------
+
+            case "checkout.session.async_payment_failed": {
+                const session =
+                    event.data.object;
+
+                const bookingId =
+                    session.metadata
+                        ?.bookingId;
+
+                if (!bookingId) {
+                    break;
+                }
+
+                const booking =
+                    await Booking.findById(
+                        bookingId
+                    );
+
+                if (
+                    booking &&
+                    !booking.isPaid
+                ) {
+                    booking.status =
+                        "cancelled";
+
+                    await booking.save();
+                }
+
+                break;
+            }
+
+            // ------------------------------------------------
+            // PAYMENT INTENT SUCCESS
+            // ------------------------------------------------
+            // Kept for compatibility with
+            // your previous implementation.
+            // ------------------------------------------------
+
+            case "payment_intent.succeeded": {
+                const paymentIntent =
+                    event.data.object;
+
+                const sessionList =
+                    await stripe.checkout.sessions.list(
+                        {
+                            payment_intent:
+                                paymentIntent.id,
+                            limit: 1,
+                        }
+                    );
+
+                const session =
+                    sessionList.data[0];
+
+                if (!session) {
+                    console.error(
+                        "Stripe checkout session not found."
+                    );
+
+                    break;
+                }
+
+                const bookingId =
+                    session.metadata
+                        ?.bookingId;
+
+                if (!bookingId) {
+                    console.error(
+                        "No bookingId found for payment intent."
+                    );
+
+                    break;
+                }
+
+                await inngest.send({
+                    name:
+                        "app/payment.success",
+
+                    data: {
+                        bookingId,
+
+                        stripeSessionId:
+                            session.id,
+                    },
+                });
+
+                break;
+            }
+
             default:
-                console.log('Unhandled event type:', event.type)
+                console.log(
+                    "Unhandled Stripe event:",
+                    event.type
+                );
         }
-        response.json({received: true})
-    } catch (err) {
-        console.error("Webhook processing error:", err);
-        response.status(500).send("Internal Server Error");
+
+        return response.json({
+            received: true,
+        });
+
+    } catch (error) {
+        console.error(
+            "STRIPE WEBHOOK PROCESSING ERROR:",
+            error
+        );
+
+        return response.status(500).send(
+            "Internal Server Error"
+        );
     }
-}
+};

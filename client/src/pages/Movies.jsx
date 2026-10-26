@@ -1,30 +1,55 @@
-import React from 'react'
-import MovieCard from '../components/MovieCard'
-import BlurCircle from '../components/BlurCircle'
-import { useAppContext } from '../context/AppContext'
+import React from "react";
+import MovieCard from "../components/MovieCard";
+import BlurCircle from "../components/BlurCircle";
+import { useAppContext } from "../context/AppContext";
 
 const Movies = () => {
+    const { shows = [] } = useAppContext();
 
-  const { shows } = useAppContext()
+    const movies = Array.isArray(shows) ? shows : [];
 
-  return shows.length > 0 ? (
-    <div className='relative my-40 mb-60 px-6 md:px-16 lg:px-40 xl:px-44 overflow-hidden min-h-[80vh]'>
+    return movies.length > 0 ? (
+        <div className="relative my-40 mb-60 px-6 md:px-16 lg:px-40 xl:px-44 overflow-hidden min-h-[80vh]">
 
-      <BlurCircle top="150px" left="0px"/>
-      <BlurCircle bottom="50px" right="50px"/>
+            <BlurCircle
+                top="150px"
+                left="0px"
+            />
 
-      <h1 className='text-lg font-medium my-4'>Now Showing</h1>
-      <div className='flex flex-wrap max-sm:justify-center gap-8'>
-        {shows.map((movie)=> (
-          <MovieCard movie={movie} key={movie._id}/>
-        ))}
-      </div>
-    </div>
-  ) : (
-    <div className='flex flex-col items-center justify-center h-screen'>
-      <h1 className='text-3xl font-bold text-center'>No movies available</h1>
-    </div>
-  )
-}
+            <BlurCircle
+                bottom="50px"
+                right="50px"
+            />
 
-export default Movies
+            <h1 className="text-lg font-medium my-4">
+                Now Showing
+            </h1>
+
+            <div className="flex flex-wrap max-sm:justify-center gap-8">
+
+                {movies.map((movie) => (
+                    <MovieCard
+                        movie={movie}
+                        key={movie._id || movie.id}
+                    />
+                ))}
+
+            </div>
+
+        </div>
+    ) : (
+        <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
+
+            <h1 className="text-3xl font-bold">
+                No movies available
+            </h1>
+
+            <p className="mt-3 text-zinc-500">
+                There are currently no movies with available shows.
+            </p>
+
+        </div>
+    );
+};
+
+export default Movies;

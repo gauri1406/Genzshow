@@ -1,13 +1,18 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
+import dns from "dns";
 
-const connectDB = async () =>{
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
+
+const connectDB = async () => {
     try {
-        mongoose.connection.on('connected', ()=> console.log('Database connected'));
-        await mongoose.connect(`${process.env.MONGODB_URI}/GenzShow`)
+        await mongoose.connect(process.env.MONGODB_URI);
+
+        console.log("✅ MongoDB connected");
     } catch (error) {
-        console.log(error.message);
-        
+        console.error("❌ MongoDB connection failed:");
+        console.error(error.message);
+        process.exit(1);
     }
-}
+};
 
 export default connectDB;

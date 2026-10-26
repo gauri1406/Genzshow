@@ -1,57 +1,701 @@
-import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { assets } from '../assets/assets'
-import { MenuIcon, SearchIcon, TicketPlus, XIcon } from 'lucide-react'
-import { useClerk, UserButton, useUser } from '@clerk/clerk-react'
-import { useAppContext } from '../context/AppContext'
+import React, {
+    useState,
+} from "react";
+
+import {
+    Link,
+    useNavigate,
+    useLocation,
+} from "react-router-dom";
+
+import {
+    MenuIcon,
+    SearchIcon,
+    TicketPlus,
+    XIcon,
+} from "lucide-react";
+
+import {
+    useClerk,
+    UserButton,
+    useUser,
+} from "@clerk/clerk-react";
+
+import {
+    useAppContext,
+} from "../context/AppContext";
+
 
 const Navbar = () => {
 
- const [isOpen, setIsOpen] = useState(false)
- const {user} = useUser()
- const {openSignIn} = useClerk()
+    const [
+        isOpen,
+        setIsOpen,
+    ] = useState(false);
 
- const navigate = useNavigate()
+    const {
+        user,
+    } = useUser();
 
- const {favoriteMovies} = useAppContext()
+    const {
+        openSignIn,
+    } = useClerk();
 
-  return (
-    <div className='fixed top-0 left-0 z-50 w-full flex items-center justify-between px-6 md:px-16 lg:px-36 py-5'>
-      <Link to='/' className='max-md:flex-1'>
-        <img src={assets.logo} alt="" className='w-36 h-auto'/>
-      </Link>
+    const navigate =
+        useNavigate();
 
-      <div className={`max-md:absolute max-md:top-0 max-md:left-0 max-md:font-medium max-md:text-lg z-50 flex flex-col md:flex-row items-center max-md:justify-center gap-8 min-md:px-8 py-3 max-md:h-screen min-md:rounded-full backdrop-blur bg-black/70 md:bg-white/10 md:border border-gray-300/20 overflow-hidden transition-[width] duration-300 ${isOpen ? 'max-md:w-full' : 'max-md:w-0'}`}>
+    const location =
+        useLocation();
 
-        <XIcon className='md:hidden absolute top-6 right-6 w-6 h-6 cursor-pointer' onClick={()=> setIsOpen(!isOpen)}/>
+    const {
+        favoriteMovies = [],
+    } = useAppContext();
 
-        <Link onClick={()=> {scrollTo(0,0); setIsOpen(false)}} to='/'>Home</Link>
-        <Link onClick={()=> {scrollTo(0,0); setIsOpen(false)}} to='/movies'>Movies</Link>
-        <Link onClick={()=> {scrollTo(0,0); setIsOpen(false)}} to='/'>Theaters</Link>
-        <Link onClick={()=> {scrollTo(0,0); setIsOpen(false)}} to='/'>Releases</Link>
-       {favoriteMovies.length > 0 && <Link onClick={()=> {scrollTo(0,0); setIsOpen(false)}} to='/favorite'>Favorites</Link>}
-      </div>
 
-    <div className='flex items-center gap-8'>
-        <SearchIcon className='max-md:hidden w-6 h-6 cursor-pointer'/>
-        {
-            !user ? (
-                <button onClick={openSignIn} className='px-4 py-1 sm:px-7 sm:py-2 bg-primary hover:bg-primary-dull transition rounded-full font-medium cursor-pointer'>Login</button>
-            ) : (
-                <UserButton>
-                    <UserButton.MenuItems>
-                        <UserButton.Action label="My Bookings" labelIcon={<TicketPlus width={15}/>} onClick={()=> navigate('/my-bookings')}/>
-                    </UserButton.MenuItems>
-                </UserButton>
-            )
+    // =========================================================
+    // CLOSE MOBILE MENU
+    // =========================================================
+
+    const closeMenu = () => {
+
+        window.scrollTo(
+            0,
+            0
+        );
+
+        setIsOpen(false);
+
+    };
+
+
+    // =========================================================
+    // ACTIVE ROUTE
+    // =========================================================
+
+    const isActive = (
+        path
+    ) => {
+
+        if (
+            path === "/"
+        ) {
+            return (
+                location.pathname ===
+                "/"
+            );
         }
-        
-    </div>
 
-    <MenuIcon className='max-md:ml-4 md:hidden w-8 h-8 cursor-pointer' onClick={()=> setIsOpen(!isOpen)}/>
+        return location.pathname.startsWith(
+            path
+        );
 
-    </div>
-  )
-}
+    };
 
-export default Navbar
+
+    // =========================================================
+    // NAV LINK STYLE
+    // =========================================================
+
+    const navLinkClass = (
+        path
+    ) => {
+
+        const active =
+            isActive(path);
+
+        return `
+            relative
+            transition-all
+            duration-300
+            ${
+                active
+                    ? "text-white"
+                    : "text-zinc-400 hover:text-white"
+            }
+        `;
+
+    };
+
+
+    return (
+
+        <header
+            className="
+                fixed
+                left-0
+                top-0
+                z-50
+                w-full
+                px-6
+                py-5
+                md:px-16
+                lg:px-36
+            "
+        >
+
+            <div
+                className="
+                    flex
+                    items-center
+                    justify-between
+                "
+            >
+
+                {/* =================================================
+                    GENZSHOW WRITTEN LOGO
+                ================================================= */}
+
+                <Link
+                    to="/"
+                    className="
+                        relative
+                        z-[60]
+                        max-md:flex-1
+                    "
+                    onClick={
+                        closeMenu
+                    }
+                >
+
+                    <span
+                        className="
+                            text-2xl
+                            font-extrabold
+                            tracking-tight
+                            text-red-500
+                            transition
+                            hover:text-red-400
+                            md:text-3xl
+                        "
+                    >
+                        GenZShow
+                    </span>
+
+                </Link>
+
+
+                {/* =================================================
+                    NAVIGATION
+                ================================================= */}
+
+                <nav
+                    className={`
+                        z-50
+                        flex
+                        flex-col
+                        items-center
+                        gap-8
+                        overflow-hidden
+                        bg-black/80
+                        py-3
+                        backdrop-blur-xl
+                        transition-[width]
+                        duration-300
+
+                        md:flex-row
+                        md:border
+                        md:border-white/10
+                        md:rounded-full
+                        md:bg-white/[0.06]
+                        md:px-8
+
+                        max-md:absolute
+                        max-md:left-0
+                        max-md:top-0
+                        max-md:h-screen
+                        max-md:justify-center
+                        max-md:text-lg
+                        max-md:font-medium
+
+                        ${
+                            isOpen
+                                ? "max-md:w-full"
+                                : "max-md:w-0"
+                        }
+                    `}
+                >
+
+                    {/* =================================================
+                        MOBILE CLOSE BUTTON
+                    ================================================= */}
+
+                    <XIcon
+                        className="
+                            absolute
+                            right-6
+                            top-6
+                            h-6
+                            w-6
+                            cursor-pointer
+                            text-zinc-400
+                            transition
+                            hover:text-white
+                            md:hidden
+                        "
+                        onClick={() =>
+                            setIsOpen(
+                                false
+                            )
+                        }
+                    />
+
+
+                    {/* =================================================
+                        HOME
+                    ================================================= */}
+
+                    <Link
+                        to="/"
+                        onClick={
+                            closeMenu
+                        }
+                        className={`
+                            ${navLinkClass(
+                                "/"
+                            )}
+                        `}
+                    >
+
+                        Home
+
+                        {isActive(
+                            "/"
+                        ) && (
+
+                            <span
+                                className="
+                                    absolute
+                                    -bottom-2
+                                    left-1/2
+                                    h-1
+                                    w-1
+                                    -translate-x-1/2
+                                    rounded-full
+                                    bg-red-500
+                                    shadow-[0_0_10px_rgba(239,68,68,0.8)]
+                                "
+                            />
+
+                        )}
+
+                    </Link>
+
+
+                    {/* =================================================
+                        MOVIES
+                    ================================================= */}
+
+                    <Link
+                        to="/movies"
+                        onClick={
+                            closeMenu
+                        }
+                        className={`
+                            ${navLinkClass(
+                                "/movies"
+                            )}
+                        `}
+                    >
+
+                        Movies
+
+                        {isActive(
+                            "/movies"
+                        ) && (
+
+                            <span
+                                className="
+                                    absolute
+                                    -bottom-2
+                                    left-1/2
+                                    h-1
+                                    w-1
+                                    -translate-x-1/2
+                                    rounded-full
+                                    bg-red-500
+                                    shadow-[0_0_10px_rgba(239,68,68,0.8)]
+                                "
+                            />
+
+                        )}
+
+                    </Link>
+
+
+                    {/* =================================================
+                        GENZ AI
+                    ================================================= */}
+
+                    <Link
+                        to="/genz-ai"
+                        onClick={
+                            closeMenu
+                        }
+                        className={`
+                            ${navLinkClass(
+                                "/genz-ai"
+                            )}
+                        `}
+                    >
+
+                        <span className="flex items-center gap-1.5">
+
+                            GenZ AI
+
+                            <span
+                                className="
+                                    rounded-full
+                                    border
+                                    border-red-500/20
+                                    bg-red-500/10
+                                    px-1.5
+                                    py-0.5
+                                    text-[7px]
+                                    font-bold
+                                    uppercase
+                                    tracking-wider
+                                    text-red-400
+                                "
+                            >
+                                AI
+                            </span>
+
+                        </span>
+
+                        {isActive(
+                            "/genz-ai"
+                        ) && (
+
+                            <span
+                                className="
+                                    absolute
+                                    -bottom-2
+                                    left-1/2
+                                    h-1
+                                    w-1
+                                    -translate-x-1/2
+                                    rounded-full
+                                    bg-red-500
+                                    shadow-[0_0_10px_rgba(239,68,68,0.8)]
+                                "
+                            />
+
+                        )}
+
+                    </Link>
+
+
+                    {/* =================================================
+                        THEATRES
+                    ================================================= */}
+
+                    <Link
+                        to="/theatres"
+                        onClick={
+                            closeMenu
+                        }
+                        className={`
+                            ${navLinkClass(
+                                "/theatres"
+                            )}
+                        `}
+                    >
+
+                        Theatres
+
+                        {isActive(
+                            "/theatres"
+                        ) && (
+
+                            <span
+                                className="
+                                    absolute
+                                    -bottom-2
+                                    left-1/2
+                                    h-1
+                                    w-1
+                                    -translate-x-1/2
+                                    rounded-full
+                                    bg-red-500
+                                    shadow-[0_0_10px_rgba(239,68,68,0.8)]
+                                "
+                            />
+
+                        )}
+
+                    </Link>
+
+
+                    {/* =================================================
+                        RELEASES
+                    ================================================= */}
+
+                    <Link
+                        to="/releases"
+                        onClick={
+                            closeMenu
+                        }
+                        className={`
+                            relative
+                            ${navLinkClass(
+                                "/releases"
+                            )}
+                        `}
+                    >
+
+                        <span
+                            className="
+                                flex
+                                items-center
+                                gap-1.5
+                            "
+                        >
+
+                            Releases
+
+                            <span
+                                className="
+                                    rounded-full
+                                    border
+                                    border-red-500/20
+                                    bg-red-500/10
+                                    px-1.5
+                                    py-0.5
+                                    text-[7px]
+                                    font-bold
+                                    uppercase
+                                    tracking-wider
+                                    text-red-400
+                                "
+                            >
+                                New
+                            </span>
+
+                        </span>
+
+
+                        {isActive(
+                            "/releases"
+                        ) && (
+
+                            <span
+                                className="
+                                    absolute
+                                    -bottom-2
+                                    left-1/2
+                                    h-1
+                                    w-1
+                                    -translate-x-1/2
+                                    rounded-full
+                                    bg-red-500
+                                    shadow-[0_0_10px_rgba(239,68,68,0.8)]
+                                "
+                            />
+
+                        )}
+
+                    </Link>
+
+
+                    {/* =================================================
+                        FAVORITES
+                    ================================================= */}
+
+                    {favoriteMovies.length >
+                        0 && (
+
+                        <Link
+                            to="/favorite"
+                            onClick={
+                                closeMenu
+                            }
+                            className={`
+                                ${navLinkClass(
+                                    "/favorite"
+                                )}
+                            `}
+                        >
+
+                            Favorites
+
+                            {isActive(
+                                "/favorite"
+                            ) && (
+
+                                <span
+                                    className="
+                                        absolute
+                                        -bottom-2
+                                        left-1/2
+                                        h-1
+                                        w-1
+                                        -translate-x-1/2
+                                        rounded-full
+                                        bg-red-500
+                                        shadow-[0_0_10px_rgba(239,68,68,0.8)]
+                                    "
+                                />
+
+                            )}
+
+                        </Link>
+
+                    )}
+
+                </nav>
+
+
+                {/* =================================================
+                    RIGHT SIDE
+                ================================================= */}
+
+                <div
+                    className="
+                        flex
+                        items-center
+                        gap-5
+                        md:gap-8
+                    "
+                >
+
+                    {/* =================================================
+                        SEARCH
+                    ================================================= */}
+
+                    <button
+                        type="button"
+                        onClick={() =>
+                            navigate(
+                                "/movies"
+                            )
+                        }
+                        className="
+                            hidden
+                            cursor-pointer
+                            text-zinc-300
+                            transition
+                            hover:text-white
+                            md:block
+                        "
+                        aria-label="Search movies"
+                    >
+
+                        <SearchIcon
+                            className="
+                                h-6
+                                w-6
+                            "
+                        />
+
+                    </button>
+
+
+                    {/* =================================================
+                        AUTH
+                    ================================================= */}
+
+                    {!user ? (
+
+                        <button
+                            type="button"
+                            onClick={
+                                openSignIn
+                            }
+                            className="
+                                rounded-full
+                                bg-red-500
+                                px-4
+                                py-1.5
+                                font-medium
+                                text-white
+                                transition
+                                hover:bg-red-400
+                                sm:px-7
+                                sm:py-2
+                            "
+                        >
+                            Login
+                        </button>
+
+                    ) : (
+
+                        <UserButton>
+
+                            <UserButton.MenuItems>
+
+                                <UserButton.Action
+                                    label="My Bookings"
+                                    labelIcon={
+                                        <TicketPlus
+                                            width={
+                                                15
+                                            }
+                                        />
+                                    }
+                                    onClick={() =>
+                                        navigate(
+                                            "/my-bookings"
+                                        )
+                                    }
+                                />
+
+                            </UserButton.MenuItems>
+
+                        </UserButton>
+
+                    )}
+
+                </div>
+
+
+                {/* =================================================
+                    MOBILE MENU BUTTON
+                ================================================= */}
+
+                <button
+                    type="button"
+                    className="
+                        ml-4
+                        text-white
+                        md:hidden
+                    "
+                    onClick={() =>
+                        setIsOpen(
+                            !isOpen
+                        )
+                    }
+                    aria-label="Toggle menu"
+                >
+
+                    {isOpen ? (
+
+                        <XIcon
+                            className="
+                                h-7
+                                w-7
+                            "
+                        />
+
+                    ) : (
+
+                        <MenuIcon
+                            className="
+                                h-8
+                                w-8
+                            "
+                        />
+
+                    )}
+
+                </button>
+
+            </div>
+
+        </header>
+
+    );
+
+};
+
+
+export default Navbar;

@@ -1,115 +1,192 @@
+import "dotenv/config"; // FIX: load .env before other imports use process.env
+
 import express from "express";
 import cors from "cors";
-import "dotenv/config";
-
-import connectDB from "./configs/db.js";
 
 import { clerkMiddleware } from "@clerk/express";
 
-import { serve } from "inngest/express";
-import { inngest, functions } from "./inngest/index.js";
+import connectDB from "./configs/db.js";
 
 import showRouter from "./routes/showRoutes.js";
-import bookingRouter from "./routes/bookingRoutes.js";
-import adminRouter from "./routes/adminRoutes.js";
 import userRouter from "./routes/userRoutes.js";
+import adminRouter from "./routes/adminRoutes.js";
+import bookingRouter from "./routes/bookingRoutes.js";
+import theatreRouter from "./routes/theatreRoutes.js";
+import recommendationRouter from "./routes/recommendationRoutes.js";
+import movieDNARouter from "./routes/movieDNARoutes.js";
 
-import { stripeWebhooks } from "./controllers/stripeWebhooks.js";
 
 const app = express();
 
-const port = process.env.PORT || 3000;
+const PORT =
+    process.env.PORT || 3000;
 
-// ===============================
-// Database Connection
-// ===============================
-await connectDB();
 
-// ===============================
-// Stripe Webhook
-// IMPORTANT: Must come before express.json()
-// ===============================
-app.use(
-    "/api/stripe",
-    express.raw({ type: "application/json" }),
-    stripeWebhooks
-);
+/* =====================================================
+   DATABASE
+===================================================== */
 
-// ===============================
-// Middleware
-// ===============================
-app.use(express.json());
+connectDB();
+
+
+/* =====================================================
+   CORS
+===================================================== */
 
 app.use(
     cors({
-        origin: true,
+        origin: [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ],
+
         credentials: true,
+
+        methods: [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "OPTIONS",
+        ],
+
+        allowedHeaders: [
+            "Content-Type",
+            "Authorization",
+        ],
     })
 );
 
-app.use(clerkMiddleware());
 
-// ===============================
-// Health Check
-// ===============================
-app.get("/", (req, res) => {
-    res.json({
-        success: true,
-        message: "GenZ Show Server is Live!",
-    });
-});
+/* =====================================================
+   BODY PARSER
+===================================================== */
 
-// ===============================
-// API Routes
-// ===============================
 app.use(
-    "/api/inngest",
-    serve({
-        client: inngest,
-        functions,
+    express.json()
+);
+
+app.use(
+    express.urlencoded({
+        extended: true,
     })
 );
 
-app.use("/api/show", showRouter);
 
-app.use("/api/booking", bookingRouter);
+/* =====================================================
+   CLERK
+===================================================== */
 
-app.use("/api/admin", adminRouter);
+app.use(
+    clerkMiddleware()
+);
 
-app.use("/api/user", userRouter);
 
-// ===============================
-// 404 Handler
-// ===============================
-app.use((req, res) => {
-    res.status(404).json({
-        success: false,
-        message: "API route not found",
-    });
-});
+/* =====================================================
+   HEALTH CHECK
+===================================================== */
 
-// ===============================
-// Error Handler
-// ===============================
-app.use((err, req, res, next) => {
-    console.error("SERVER ERROR:", err);
+app.get(
+    "/",
+    (req, res) => {
+        res.json({
+            success: true,
+            message:
+                "GenZShow server is running",
+        });
+    }
+);
 
-    res.status(err.status || 500).json({
-        success: false,
-        message: err.message || "Internal Server Error",
-    });
-});
 
-// ===============================
-// Local Development
-// ===============================
-if (process.env.NODE_ENV !== "production") {
-    app.listen(port, () => {
-        console.log(`Server running at http://localhost:${port}`);
-    });
-}
+/* =====================================================
+   API ROUTES
+===================================================== */
 
-// ===============================
-// Vercel
-// ===============================
-export default app;
+app.use(
+    "/api/show",
+    showRouter
+);
+
+app.use(
+    "/api/user",
+    userRouter
+);
+
+app.use(
+    "/api/admin",
+    adminRouter
+);
+
+app.use(
+    "/api/booking",
+    bookingRouter
+);
+
+app.use(
+    "/api/theatre",
+    theatreRouter
+);
+
+app.use(
+    "/api/recommendation",
+    recommendationRouter
+);
+
+app.use(
+    "/api/movie-dna",
+    movieDNARouter
+);
+
+
+/* =====================================================
+   404
+===================================================== */
+
+app.use(
+    (req, res) => {
+        res.status(404).json({
+            success: false,
+            message:
+                `Route not found: ${req.method} ${req.originalUrl}`,
+        });
+    }
+);
+
+
+/* =====================================================
+   ERROR HANDLER
+===================================================== */
+
+app.use(
+    (error, req, res, next) => {
+
+        console.error(
+            "SERVER ERROR:",
+            error
+        );
+
+        res.status(
+            error?.status || 500
+        ).json({
+            success: false,
+            message:
+                error?.message ||
+                "Internal server error",
+        });
+    }
+);
+
+
+/* =====================================================
+   START SERVER
+===================================================== */
+
+app.listen(
+    PORT,
+    () => {
+        console.log(
+            `GenZShow server running on http://localhost:${PORT}`
+        );
+    }
+);
